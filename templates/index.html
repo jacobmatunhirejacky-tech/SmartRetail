@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart — Retail Inventory & Sync Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="h-full text-slate-100 font-sans antialiased">
+
+    <!-- Top Navigation Bar -->
+    <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-xl text-white shadow-lg shadow-indigo-500/30">
+                        <i class="fa-solid fa-laptop text-sm"></i>
+                    </div>
+                    <span class="text-lg font-bold tracking-tight text-white">Smart <span class="text-indigo-400 font-normal">Retail</span></span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="inline-flex items-center gap-x-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-slate-800/80 text-slate-300 border-slate-700">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        SQLite Local + Neon Cloud
+                    </span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Live Status Message Banner -->
+        <div id="statusBanner" class="p-4 rounded-xl border bg-indigo-950/40 border-indigo-500/30 text-indigo-200 text-sm flex items-center justify-between {% if not sync_message %}hidden{% endif %}">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-circle-info text-indigo-400"></i>
+                <span id="statusText">{{ sync_message }}</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left Panel: Record Sale Form -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+                    <h2 class="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-cart-plus text-indigo-400"></i>
+                        New Transaction
+                    </h2>
+                    <p class="text-xs text-slate-400 mb-6">Record laptop checkout locally instantly.</p>
+
+                    <form id="saleForm" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Laptop Model</label>
+                            <input type="text" id="laptop_model" name="laptop_model" required placeholder="e.g. Lenovo ThinkPad X1"
+                                class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Price ($)</label>
+                                <input type="number" step="0.01" id="price" name="price" required placeholder="850.00"
+                                    class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Quantity</label>
+                                <input type="number" id="quantity" name="quantity" min="1" value="1" required
+                                    class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submitBtn"
+                            class="w-full mt-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-[0.98]">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span id="btnText">Save Transaction</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Panel: Sales Ledger Table -->
+            <div class="lg:col-span-2">
+                <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-lg font-semibold text-white">Sales Ledger</h2>
+                            <p class="text-xs text-slate-400">Transactions stored locally in SQLite and synced to Neon Cloud.</p>
+                        </div>
+                        <button id="syncBtn" onclick="triggerManualSync()" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium text-slate-200 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate text-slate-400" id="syncIcon"></i> Sync / Refresh
+                        </button>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700">
+                                <tr>
+                                    <th class="py-3 px-4">Model</th>
+                                    <th class="py-3 px-4">Price</th>
+                                    <th class="py-3 px-4">Qty</th>
+                                    <th class="py-3 px-4">Timestamp (CAT)</th>
+                                    <th class="py-3 px-4 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesTableBody" class="divide-y divide-slate-700/50">
+                                {% for sale in sales %}
+                                <tr class="hover:bg-slate-700/30 transition">
+                                    <td class="py-3.5 px-4 font-medium text-white">{{ sale.laptop_model }}</td>
+                                    <td class="py-3.5 px-4 text-emerald-400 font-medium">${{ "%.2f"|format(sale.price) }}</td>
+                                    <td class="py-3.5 px-4">{{ sale.quantity }}</td>
+                                    <td class="py-3.5 px-4 text-xs text-slate-400">{{ sale.timestamp }}</td>
+                                    <td class="py-3.5 px-4 text-right">
+                                        {% if sale.is_synced == 1 %}
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            <i class="fa-solid fa-check text-[10px]"></i> Neon Synced
+                                        </span>
+                                        {% else %}
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                            <i class="fa-solid fa-wifi text-[10px] animate-pulse"></i> Offline / Pending
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr id="emptyRow">
+                                    <td colspan="5" class="py-8 text-center text-slate-500 text-sm">
+                                        No sales records found. Add your first sale on the left!
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- AJAX Background Sync Script -->
+    <script>
+        const form = document.getElementById('saleForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const statusBanner = document.getElementById('statusBanner');
+        const statusText = document.getElementById('statusText');
+        const tableBody = document.getElementById('salesTableBody');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevent full page refresh
+
+            // Disable button and show loading indicator
+            submitBtn.disabled = true;
+            btnText.innerText = "Processing & Syncing...";
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/api/add_sale', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Update status banner
+                    statusBanner.classList.remove('hidden');
+                    statusText.innerText = data.message;
+
+                    // Remove empty row placeholder if present
+                    const emptyRow = document.getElementById('emptyRow');
+                    if (emptyRow) emptyRow.remove();
+
+                    // Prepend new row dynamically to the top of table
+                    const sale = data.sale;
+                    const statusBadge = sale.is_synced === 1
+                        ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-check text-[10px]"></i> Neon Synced</span>`
+                        : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-wifi text-[10px] animate-pulse"></i> Offline / Pending</span>`;
+
+                    const newRow = document.createElement('tr');
+                    newRow.className = 'hover:bg-slate-700/30 transition bg-indigo-950/20';
+                    newRow.innerHTML = `
+                        <td class="py-3.5 px-4 font-medium text-white">${sale.laptop_model}</td>
+                        <td class="py-3.5 px-4 text-emerald-400 font-medium">$${parseFloat(sale.price).toFixed(2)}</td>
+                        <td class="py-3.5 px-4">${sale.quantity}</td>
+                        <td class="py-3.5 px-4 text-xs text-slate-400">${sale.timestamp}</td>
+                        <td class="py-3.5 px-4 text-right">${statusBadge}</td>
+                    `;
+                    tableBody.insertBefore(newRow, tableBody.firstChild);
+
+                    // Reset form fields
+                    form.reset();
+                    document.getElementById('quantity').value = 1;
+                }
+            } catch (err) {
+                console.error("Submission failed:", err);
+            } finally {
+                submitBtn.disabled = false;
+                btnText.innerText = "Save Transaction";
+            }
+        });
+
+        async function triggerManualSync() {
+            const syncIcon = document.getElementById('syncIcon');
+            syncIcon.classList.add('fa-spin');
+
+            try {
+                const response = await fetch('/api/sync', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    statusBanner.classList.remove('hidden');
+                    statusText.innerText = data.message;
+
+                    // Re-render table rows
+                    tableBody.innerHTML = '';
+                    data.sales.forEach(sale => {
+                        const statusBadge = sale.is_synced === 1
+                            ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-check text-[10px]"></i> Neon Synced</span>`
+                            : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-wifi text-[10px] animate-pulse"></i> Offline / Pending</span>`;
+
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-slate-700/30 transition';
+                        row.innerHTML = `
+                            <td class="py-3.5 px-4 font-medium text-white">${sale.laptop_model}</td>
+                            <td class="py-3.5 px-4 text-emerald-400 font-medium">$${parseFloat(sale.price).toFixed(2)}</td>
+                            <td class="py-3.5 px-4">${sale.quantity}</td>
+                            <td class="py-3.5 px-4 text-xs text-slate-400">${sale.timestamp}</td>
+                            <td class="py-3.5 px-4 text-right">${statusBadge}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                }
+            } catch (err) {
+                console.error("Sync failed:", err);
+            } finally {
+                syncIcon.classList.remove('fa-spin');
+            }
+        }
+        // -----------------------------------------------------------
+// Automatic Reconnection & Polling Sync Engine
+// -----------------------------------------------------------
+
+// 1. Instantly trigger sync when the laptop reconnects to Wi-Fi/Internet
+window.addEventListener('online', () => {
+    console.log("[SmartRetail] Wi-Fi reconnected! Auto-syncing pending sales...");
+    statusBanner.classList.remove('hidden');
+    statusText.innerText = "Wi-Fi reconnected! Syncing pending sales to Neon Cloud...";
+    triggerManualSync();
+});
+
+// 2. Optional: Auto-check every 10 seconds in the background
+setInterval(() => {
+    // Only auto-poll if browser reports online status
+    if (navigator.onLine) {
+        triggerManualSync();
+    }
+}, 10000); // 10,000 ms = 10 seconds
+    </script>
+</body>
+</html>
